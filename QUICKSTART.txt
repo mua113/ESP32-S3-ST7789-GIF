@@ -1,0 +1,229 @@
+/*
+ * QUICK START GUIDE
+ * ESP32-S3 ST7789 GIF Player with WiFi
+ */
+
+// ============================================
+// STEP 1: INSTALLATION
+// ============================================
+/*
+ * 1. Install TFT_eSPI library:
+ *    Sketch → Include Library → Manage Libraries
+ *    Search: "TFT_eSPI" by Bodmer → Install
+ *
+ * 2. Install AnimatedGIF library:
+ *    Sketch → Include Library → Manage Libraries
+ *    Search: "AnimatedGIF" by bitbank2 → Install
+ *
+ * 3. Copy User_Setup.h to:
+ *    Arduino/libraries/TFT_eSPI/User_Setup.h
+ *
+ * 4. Select Board:
+ *    Tools → Board → ESP32-S3 Dev Module
+ *
+ * 5. Select COM Port
+ */
+
+// ============================================
+// STEP 2: PIN CONNECTIONS
+// ============================================
+/*
+ * ESP32-S3 PIN    →    ST7789 LCD
+ * ─────────────────────────────
+ * GPIO12 (MOSI)   →    SDA
+ * GPIO13 (SCK)    →    SCL
+ * GPIO10          →    DC (Data/Command)
+ * GPIO11          →    RST (Reset)
+ * GPIO9           →    CS (Chip Select)
+ * 3.3V            →    VCC
+ * GND             →    GND
+ * GND             →    BL (Backlight)
+ *
+ * Wire up carefully! Use breadboard for clarity.
+ */
+
+// ============================================
+// STEP 3: UPLOAD CODE
+// ============================================
+/*
+ * 1. Edit WiFi credentials (if needed):
+ *    - ssid = "FPT Bao Minh"
+ *    - password = "123456789"
+ *
+ * 2. Click "Upload" (⤴)
+ *
+ * 3. Wait for "Leaving... Hard resetting via RTS pin..."
+ *
+ * 4. Open Tools → Serial Monitor (115200)
+ */
+
+// ============================================
+// STEP 4: UPLOAD GIF FILE
+// ============================================
+/*
+ * Option A: Via Web Interface (Recommended)
+ * ──────────────────────────────────────
+ * 1. Look at Serial Monitor for IP address
+ *    Example: "Open http://192.168.1.100 in browser"
+ *
+ * 2. Copy the IP address
+ *
+ * 3. Open web browser and paste:
+ *    http://192.168.1.100
+ *
+ * 4. Drag & drop GIF file to upload area
+ *
+ * 5. Watch animation on LCD!
+ *
+ *
+ * Option B: Via Arduino IDE (SPIFFS Upload)
+ * ──────────────────────────────────────
+ * 1. Create folder "data" in project folder
+ *
+ * 2. Put "animation.gif" inside "data" folder
+ *
+ * 3. Tools → ESP32 Sketch Data Upload
+ *
+ * 4. Done! Restart ESP32
+ */
+
+// ============================================
+// STEP 5: TROUBLESHOOTING
+// ============================================
+/*
+ * Problem: Display not showing anything
+ * Solution:
+ *   - Check pin connections (use multimeter)
+ *   - Verify User_Setup.h has correct pins
+ *   - Try different SPI frequency in User_Setup.h
+ *   - Check LCD power supply (3.3V)
+ *
+ * Problem: WiFi not connecting
+ * Solution:
+ *   - Check SSID and password spelling
+ *   - Ensure router is powered on
+ *   - Move ESP32 closer to router
+ *   - Check Serial Monitor for error messages
+ *
+ * Problem: GIF not loading
+ * Solution:
+ *   - Check file is .gif format (not .jpg, .png)
+ *   - Verify file is in SPIFFS
+ *   - Try smaller/simpler GIF file
+ *   - Clear browser cache if using web upload
+ *
+ * Problem: Memory/Crash issues
+ * Solution:
+ *   - Use smaller GIF files (<2MB)
+ *   - Reduce GIF resolution to 240x240
+ *   - Use 256-color palette
+ *   - Reduce number of frames
+ */
+
+// ============================================
+// USEFUL GIF CONVERSION COMMANDS
+// ============================================
+/*
+ * Using ImageMagick (install first):
+ *
+ * Convert video to GIF:
+ * convert -delay 20 -loop 0 video.mp4 output.gif
+ *
+ * Resize GIF:
+ * convert -resize 240x240 input.gif output.gif
+ *
+ * Create from images:
+ * convert -delay 20 -loop 0 frame*.png animation.gif
+ *
+ * Optimize GIF size:
+ * gifsicle --batch --optimize=3 input.gif -o output.gif
+ */
+
+// ============================================
+// ONLINE GIF TOOLS
+// ============================================
+/*
+ * Convert videos:     https://ezgif.com/video-to-gif
+ * Compress GIF:       https://gifcompressor.com
+ * Resize GIF:         https://ezgif.com/resize
+ * Create from images: https://ezgif.com/maker
+ * Optimize:           https://ezgif.com/optimize
+ */
+
+// ============================================
+// EXPECTED SERIAL OUTPUT
+// ============================================
+/*
+ * === ESP32-S3 ST7789 GIF Player with WiFi ===
+ * Display: 240x240
+ * Initializing TFT...
+ * Mounting SPIFFS...
+ * SPIFFS mounted successfully!
+ * Connecting to WiFi: FPT Bao Minh
+ * WiFi connected! IP: 192.168.1.100
+ * Starting Web Server...
+ * Web server started!
+ * Open http://192.168.1.100 in browser
+ * Loading GIF...
+ * GIF loaded: 240x240
+ */
+
+// ============================================
+// HARDWARE SPECS
+// ============================================
+/*
+ * ESP32-S3:
+ *   - Dual-core 240 MHz processor
+ *   - 16MB Flash + 8MB PSRAM
+ *   - WiFi & Bluetooth support
+ *   - USB-C for power & upload
+ *
+ * ST7789:
+ *   - 1.54" IPS LCD
+ *   - 240x240 pixels
+ *   - 16-bit color (RGB565)
+ *   - SPI interface (40+ MHz)
+ *   - 3.3V logic
+ */
+
+// ============================================
+// POWER REQUIREMENTS
+// ============================================
+/*
+ * ESP32-S3 + WiFi:    ~150mA
+ * LCD Display:         ~50mA
+ * Total:               ~200mA typical
+ *
+ * Use 500mA+ USB power supply for stability
+ * Avoid thin USB cables (voltage drop)
+ */
+
+// ============================================
+// FILES IN THIS PROJECT
+// ============================================
+/*
+ * ESP32-S3-ST7789-GIF.ino    - Main code
+ * User_Setup.h               - TFT_eSPI configuration
+ * platformio.ini             - PlatformIO settings
+ * package.json               - Project metadata
+ * README.md                  - Full documentation
+ * QUICKSTART.txt             - This file
+ */
+
+// ============================================
+// NEXT STEPS
+// ============================================
+/*
+ * 1. Upload code to ESP32-S3
+ * 2. Check Serial Monitor for IP address
+ * 3. Open web browser to IP address
+ * 4. Prepare/convert a GIF file
+ * 5. Upload GIF via web interface
+ * 6. Enjoy your animation!
+ *
+ * For more help, see README.md
+ */
+
+// ============================================
+// HAPPY CODING! 🎉
+// ============================================
