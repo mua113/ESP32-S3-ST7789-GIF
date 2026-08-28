@@ -1,0 +1,2 @@
+# ESP32-S3-ST7789-GIF
+ESP32-S3 N16R8 with ST7789 LCD 1.54 inch - GIF Animation Display
