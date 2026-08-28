@@ -9,10 +9,18 @@
  * GPIO10        → DC
  * GPIO11        → RST
  * GPIO9         → CS
+ * 
+ * Libraries needed:
+ * - TFT_eSPI
+ * - AnimatedGIF
+ * - SPIFFS (built-in)
+ * - WiFi (built-in)
+ * - WebServer (built-in)
  */
 
 #include <TFT_eSPI.h>
 #include <SPI.h>
+#include <FS.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -27,7 +35,14 @@ AnimatedGIF gif;
 WebServer server(80);
 
 bool gifLoaded = false;
-String currentGifFile = "/animation.gif";
+int gifDelay = 20;
+
+// Forward declarations
+void handleRoot();
+void handleUpload();
+void handleFileList();
+void handleDelete();
+void displayWiFiInfo();
 
 // Callback function to draw GIF frame
 void GIFDraw(GIFDRAW *pDraw) {
@@ -42,6 +57,42 @@ void GIFDraw(GIFDRAW *pDraw) {
     tft.pushImage(pDraw->iX, pDraw->iY, pDraw->iWidth, pDraw->iHeight, d);
     free(d);
   }
+}
+
+// Custom file open/close/read/seek callbacks for SPIFFS
+static GIFFILE gifFile;
+
+void *GifOpenFile(const char *fname, int32_t *pFileSize) {
+  File file = SPIFFS.open(fname);
+  if (file) {
+    *pFileSize = file.size();
+    GIFFILE *pf = &gifFile;
+    pf->fHandle = file;
+    return pf;
+  }
+  return NULL;
+}
+
+void GifCloseFile(void *pHandle) {
+  GIFFILE *pf = (GIFFILE *)pHandle;
+  if (pf && pf->fHandle) {
+    ((File)pf->fHandle).close();
+  }
+}
+
+int32_t GifReadFile(GIFFILE *pFile, uint8_t *pBuf, int32_t iLen) {
+  int bytes_read = 0;
+  if (pFile && pFile->fHandle) {
+    bytes_read = ((File)pFile->fHandle).read(pBuf, iLen);
+  }
+  return bytes_read;
+}
+
+int32_t GifSeekFile(GIFFILE *pFile, int32_t iPosition) {
+  if (pFile && pFile->fHandle) {
+    return ((File)pFile->fHandle).seek(iPosition);
+  }
+  return 0;
 }
 
 // ============= WEB SERVER HANDLERS =============
@@ -131,6 +182,10 @@ void handleRoot() {
         }
         button:active {
             transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
         .progress {
             display: none;
@@ -229,32 +284,32 @@ void handleRoot() {
         <div class="info">LCD: 240x240 | ST7789 | WiFi Enabled</div>
         
         <div class="info-box">
-            <p><strong>📋 Hướng dẫn:</strong></p>
-            <p>✓ Chọn file GIF (dùng animated GIF tối ưu)</p>
-            <p>✓ Kích thước GIF nên ≤ 240x240 pixels</p>
-            <p>✓ Dung lượng file tối đa 2MB</p>
+            <p><strong>📋 Instructions:</strong></p>
+            <p>✓ Select animated GIF file</p>
+            <p>✓ Recommended size: ≤ 240x240 pixels</p>
+            <p>✓ Max file size: 2MB</p>
         </div>
 
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📁</div>
-            <div class="upload-text">Kéo thả file GIF tại đây</div>
-            <div class="upload-hint">hoặc click để chọn</div>
+            <div class="upload-text">Drag GIF file here</div>
+            <div class="upload-hint">or click to select</div>
             <input type="file" id="fileInput" accept=".gif" />
         </div>
 
-        <button id="uploadBtn">Tải lên</button>
+        <button id="uploadBtn">Upload</button>
 
         <div class="progress" id="progress">
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill">0%</div>
             </div>
-            <span id="progressText">Đang tải...</span>
+            <span id="progressText">Uploading...</span>
         </div>
 
         <div class="status" id="status"></div>
 
         <div class="file-list" id="fileList">
-            <h3>📂 File trong thiết bị:</h3>
+            <h3>📂 Files on Device:</h3>
             <div id="fileItems"></div>
         </div>
     </div>
@@ -301,7 +356,7 @@ void handleRoot() {
             if (!file) return;
 
             if (!file.name.endsWith('.gif')) {
-                showStatus('Vui lòng chọn file GIF!', 'error');
+                showStatus('Please select a GIF file!', 'error');
                 return;
             }
 
@@ -319,24 +374,24 @@ void handleRoot() {
                     const percentComplete = (e.loaded / e.total) * 100;
                     progressFill.style.width = percentComplete + '%';
                     progressFill.textContent = Math.round(percentComplete) + '%';
-                    progressText.textContent = `Đang tải: ${Math.round(e.loaded / 1024)} KB / ${Math.round(e.total / 1024)} KB`;
+                    progressText.textContent = `Uploading: ${Math.round(e.loaded / 1024)} KB / ${Math.round(e.total / 1024)} KB`;
                 }
             });
 
             xhr.addEventListener('load', () => {
                 if (xhr.status === 200) {
-                    showStatus('✓ Tải lên thành công! GIF đang chạy...', 'success');
+                    showStatus('✓ Upload successful! GIF is playing...', 'success');
                     fileInput.value = '';
                     loadFileList();
                 } else {
-                    showStatus('✗ Lỗi tải lên: ' + xhr.statusText, 'error');
+                    showStatus('✗ Upload failed: ' + xhr.statusText, 'error');
                 }
                 progress.style.display = 'none';
                 uploadBtn.disabled = false;
             });
 
             xhr.addEventListener('error', () => {
-                showStatus('✗ Lỗi kết nối!', 'error');
+                showStatus('✗ Connection error!', 'error');
                 progress.style.display = 'none';
                 uploadBtn.disabled = false;
             });
@@ -358,7 +413,7 @@ void handleRoot() {
                     fileItems.innerHTML = '';
                     
                     if (data.files.length === 0) {
-                        fileItems.innerHTML = '<p style="color:#999;">Không có file</p>';
+                        fileItems.innerHTML = '<p style="color:#999;">No files</p>';
                         return;
                     }
 
@@ -367,7 +422,7 @@ void handleRoot() {
                         item.className = 'file-item';
                         item.innerHTML = `
                             <span class="file-name">${file.name} (${file.size} bytes)</span>
-                            <button class="delete-btn" onclick="deleteFile('${file.name}')">Xóa</button>
+                            <button class="delete-btn" onclick="deleteFile('${file.name}')">Delete</button>
                         `;
                         fileItems.appendChild(item);
                     });
@@ -375,7 +430,7 @@ void handleRoot() {
         }
 
         function deleteFile(filename) {
-            if (!confirm('Xóa file này?')) return;
+            if (!confirm('Delete this file?')) return;
             
             fetch('/delete?name=' + encodeURIComponent(filename), { method: 'GET' })
                 .then(r => r.json())
@@ -395,16 +450,10 @@ void handleRoot() {
 
 // Handle file upload
 void handleUpload() {
-  if (server.method() != HTTP_POST) {
-    server.send(405, "text/plain", "Method Not Allowed");
-    return;
-  }
-
   HTTPUpload& upload = server.upload();
 
   if (upload.status == UPLOAD_FILE_START) {
-    String filename = upload.filename;
-    Serial.printf("Upload Start: %s\n", filename.c_str());
+    Serial.printf("Upload Start: %s\n", upload.filename.c_str());
     
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     Serial.printf("Writing %d bytes\n", upload.currentSize);
@@ -412,18 +461,23 @@ void handleUpload() {
   } else if (upload.status == UPLOAD_FILE_END) {
     File file = SPIFFS.open("/animation.gif", "w");
     if (file) {
+      file.write(upload.buf, upload.currentSize);
       file.close();
       Serial.println("File saved successfully!");
       
       // Reload GIF
       gif.close();
       delay(100);
-      if (gif.open("/animation.gif", GIFDraw)) {
+      
+      // Try to open GIF with callbacks
+      if (gif.open("/animation.gif", GifOpenFile, GifCloseFile, GifReadFile, GifSeekFile, GIFDraw)) {
         gifLoaded = true;
-        Serial.println("GIF reloaded!");
+        Serial.printf("GIF reloaded: %dx%d\n", gif.getCanvasWidth(), gif.getCanvasHeight());
+      } else {
+        Serial.println("Failed to load GIF");
       }
     }
-    server.send(200, "text/json", "{\"success\": true}");
+    server.send(200, "application/json", "{\"success\": true}");
   }
 }
 
@@ -445,21 +499,21 @@ void handleFileList() {
   }
   
   json += "]}";
-  server.send(200, "application/json; charset=utf-8", json);
+  server.send(200, "application/json", json);
 }
 
 // Delete file
 void handleDelete() {
   if (!server.hasArg("name")) {
-    server.send(400, "text/json", "{\"success\": false, \"message\": \"Missing filename\"}");
+    server.send(400, "application/json", "{\"success\": false, \"message\": \"Missing filename\"}");
     return;
   }
   
   String filename = "/" + server.arg("name");
   if (SPIFFS.remove(filename)) {
-    server.send(200, "text/json", "{\"success\": true, \"message\": \"File deleted\"}");
+    server.send(200, "application/json", "{\"success\": true, \"message\": \"File deleted\"}");
   } else {
-    server.send(500, "text/json", "{\"success\": false, \"message\": \"Delete failed\"}");
+    server.send(500, "application/json", "{\"success\": false, \"message\": \"Delete failed\"}");
   }
 }
 
@@ -548,7 +602,7 @@ void setup() {
   
   // Try to load GIF
   Serial.println("\nLoading GIF...");
-  if (gif.open("/animation.gif", GIFDraw)) {
+  if (gif.open("/animation.gif", GifOpenFile, GifCloseFile, GifReadFile, GifSeekFile, GIFDraw)) {
     gifLoaded = true;
     Serial.printf("GIF loaded: %dx%d\n", gif.getCanvasWidth(), gif.getCanvasHeight());
     tft.fillScreen(TFT_BLACK);
@@ -566,7 +620,7 @@ void loop() {
   server.handleClient();  // Handle web requests
   
   if (gifLoaded && gif.playFrame(true, NULL)) {
-    delay(gif.getLastDelay());
+    delay(gifDelay);
   } else if (gifLoaded) {
     gif.reset();  // Loop back
   } else {
