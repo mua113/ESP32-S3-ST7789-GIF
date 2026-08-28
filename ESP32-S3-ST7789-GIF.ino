@@ -13,18 +13,18 @@
  * Libraries needed:
  * - TFT_eSPI
  * - AnimatedGIF
- * - SPIFFS (built-in)
- * - WiFi (built-in)
- * - WebServer (built-in)
  */
 
-#include <TFT_eSPI.h>
-#include <SPI.h>
+#include <Arduino.h>
 #include <FS.h>
 #include <SPIFFS.h>
+#include <SPI.h>
+#include <TFT_eSPI.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include "AnimatedGIF.h"
+
+using namespace fs;
 
 // WiFi credentials
 const char* ssid = "FPT Bao Minh";
@@ -57,42 +57,6 @@ void GIFDraw(GIFDRAW *pDraw) {
     tft.pushImage(pDraw->iX, pDraw->iY, pDraw->iWidth, pDraw->iHeight, d);
     free(d);
   }
-}
-
-// Custom file open/close/read/seek callbacks for SPIFFS
-static GIFFILE gifFile;
-
-void *GifOpenFile(const char *fname, int32_t *pFileSize) {
-  File file = SPIFFS.open(fname);
-  if (file) {
-    *pFileSize = file.size();
-    GIFFILE *pf = &gifFile;
-    pf->fHandle = file;
-    return pf;
-  }
-  return NULL;
-}
-
-void GifCloseFile(void *pHandle) {
-  GIFFILE *pf = (GIFFILE *)pHandle;
-  if (pf && pf->fHandle) {
-    ((File)pf->fHandle).close();
-  }
-}
-
-int32_t GifReadFile(GIFFILE *pFile, uint8_t *pBuf, int32_t iLen) {
-  int bytes_read = 0;
-  if (pFile && pFile->fHandle) {
-    bytes_read = ((File)pFile->fHandle).read(pBuf, iLen);
-  }
-  return bytes_read;
-}
-
-int32_t GifSeekFile(GIFFILE *pFile, int32_t iPosition) {
-  if (pFile && pFile->fHandle) {
-    return ((File)pFile->fHandle).seek(iPosition);
-  }
-  return 0;
 }
 
 // ============= WEB SERVER HANDLERS =============
@@ -459,7 +423,7 @@ void handleUpload() {
     Serial.printf("Writing %d bytes\n", upload.currentSize);
     
   } else if (upload.status == UPLOAD_FILE_END) {
-    File file = SPIFFS.open("/animation.gif", "w");
+    fs::File file = SPIFFS.open("/animation.gif", "w");
     if (file) {
       file.write(upload.buf, upload.currentSize);
       file.close();
@@ -469,8 +433,8 @@ void handleUpload() {
       gif.close();
       delay(100);
       
-      // Try to open GIF with callbacks
-      if (gif.open("/animation.gif", GifOpenFile, GifCloseFile, GifReadFile, GifSeekFile, GIFDraw)) {
+      // Try to open GIF - use simple approach
+      if (gif.open((uint8_t *)"/animation.gif", 0, GIFDraw)) {
         gifLoaded = true;
         Serial.printf("GIF reloaded: %dx%d\n", gif.getCanvasWidth(), gif.getCanvasHeight());
       } else {
@@ -486,8 +450,8 @@ void handleFileList() {
   String json = "{\"files\": [";
   bool first = true;
   
-  File root = SPIFFS.open("/");
-  File file = root.openNextFile();
+  fs::File root = SPIFFS.open("/");
+  fs::File file = root.openNextFile();
   
   while (file) {
     if (file.name()[0] != '.') {
@@ -602,7 +566,7 @@ void setup() {
   
   // Try to load GIF
   Serial.println("\nLoading GIF...");
-  if (gif.open("/animation.gif", GifOpenFile, GifCloseFile, GifReadFile, GifSeekFile, GIFDraw)) {
+  if (gif.open((uint8_t *)"/animation.gif", 0, GIFDraw)) {
     gifLoaded = true;
     Serial.printf("GIF loaded: %dx%d\n", gif.getCanvasWidth(), gif.getCanvasHeight());
     tft.fillScreen(TFT_BLACK);
